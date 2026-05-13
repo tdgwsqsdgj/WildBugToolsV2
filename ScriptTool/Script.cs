@@ -1,4 +1,4 @@
-﻿using CommonLib;
+using CommonLib;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -159,18 +159,41 @@ namespace ScriptTool
 
             // Read constant string list
 
+            // Read constant string list
+
             input.Position = m_header.ConstantStringPosition;
 
             while (input.Position < m_header.ConstantStringPosition + m_header.ConstantStringLength)
             {
                 var item = new ConstantString();
 
-                item.Position = Convert.ToInt32(input.Position - m_header.ConstantStringPosition);
+                item.Position = Convert.ToInt32(
+                    input.Position - m_header.ConstantStringPosition
+                );
+
                 item.Value = reader.ReadNullTerminatedString(encoding);
 
                 m_constant_strings.Add(item);
 
-                input.AlignPosition(4);
+                // 不再强制4字节对齐
+                // input.AlignPosition(4);
+
+                // 跳过连续NULL
+                while (
+                    input.Position < m_header.ConstantStringPosition + m_header.ConstantStringLength
+                    && reader.BaseStream.Position < reader.BaseStream.Length
+                )
+                {
+                    long pos = input.Position;
+
+                    int b = reader.ReadByte();
+
+                    if (b != 0)
+                    {
+                        input.Position = pos;
+                        break;
+                    }
+                }
             }
 
             // Done
@@ -391,14 +414,25 @@ namespace ScriptTool
                     if ((arg.Code & 0xF0) == 0x20)
                     {
                         // Get string to encode
-                        arg.RefString ??= constantStringMap[arg.Value];
+                        if (arg.RefString == null)
+                        {
+                            if (constantStringMap.TryGetValue(arg.Value, out var str))
+                                arg.RefString = str;
+                            else
+                                arg.RefString = "";
+                        }
 
                         // Get string position
                         arg.Value = Convert.ToInt32(strOutput.Position);
 
                         // Write string
                         strWriter.WriteNullTerminatedString(arg.RefString, encoding);
-                        strOutput.AlignPosition(4);
+
+                        // 不强制4字节对齐
+                        // strOutput.AlignPosition(4);
+
+                        // 只补一个 NULL
+                        strWriter.Write((byte)0);
                     }
 
                     WriteArgument(argWriter, arg);
@@ -549,7 +583,14 @@ namespace ScriptTool
                 {
                     if ((arg.Code & 0xF0) == 0x20)
                     {
-                        arg.RefString = constantStringMap[arg.Value];
+                        if (constantStringMap.TryGetValue(arg.Value, out var str))
+                        {
+                            arg.RefString = str;
+                        }
+                        else
+                        {
+                            arg.RefString = $"<INVALID_STR_{arg.Value:X}>";
+                        }
                     }
                 }
             }
@@ -570,45 +611,52 @@ namespace ScriptTool
 
         public void ExportText(string filePath)
         {
-            using var writer = File.CreateText(filePath);
+            using var writer = new StreamWriter(filePath, false, Encoding.UTF8);
 
-            var constantStringMap = m_constant_strings.ToFrozenDictionary(x => x.Position, x => x.Value);
+            Console.WriteLine($"[+] Total strings: {m_constant_strings.Count}");
 
-            for (var i = 0; i < m_commands.Count; i++)
+            int exported = 0;
+
+            foreach (var str in m_constant_strings)
             {
-                var cmd = m_commands[i];
+                var text = str.Value;
 
-                for (var j = 0; j < cmd.Args.Count; j++)
-                {
-                    var arg = cmd.Args[j];
+                if (string.IsNullOrWhiteSpace(text))
+                    continue;
 
-                    if ((arg.Code & 0xF0) == 0x20)
-                    {
-                        var text = constantStringMap[arg.Value];
+                text = text.Trim();
 
-                        if (string.IsNullOrWhiteSpace(text))
-                        {
-                            continue;
-                        }
+                // 过滤纯控制字符串
+                if (text.StartsWith("."))
+                    continue;
 
-                        // 24 bits for command index
-                        //  8 bits for argument index
-                        var id = (i << 8) | j;
+                if (text.StartsWith("[") && text.EndsWith("]"))
+                    continue;
 
-                        // Make sure the text is a single line
-                        text = text.Escape();
+                // 过滤短资源名
+                if (text.Length <= 2)
+                    continue;
 
-                        writer.WriteLine("◇{0:X8}◇{1}", id, text);
-                        writer.WriteLine("◆{0:X8}◆{1}", id, text);
-                        writer.WriteLine();
-                    }
-                }
+                // 过滤纯ASCII控制名
+                bool hasJapanese = text.Any(c => c >= 0x80);
+
+                if (!hasJapanese)
+                    continue;
+
+                text = text.Replace("\r", "\\r");
+                text = text.Replace("\n", "\\n");
+
+                writer.WriteLine($"◇{str.Position:X8}◇{text}");
+                writer.WriteLine($"◆{str.Position:X8}◆{text}");
+                writer.WriteLine();
+
+                exported++;
             }
 
             writer.Flush();
-            writer.Close();
-        }
 
+            Console.WriteLine($"[+] Exported strings: {exported}");
+        }
         public void ImportText(string filePath)
         {
             var translation = Translation.Load(filePath);
@@ -631,9 +679,13 @@ namespace ScriptTool
                         {
                             arg.RefString = text.Unescape();
                         }
+                        if (constantStringMap.TryGetValue(arg.Value, out var str))
+                        {
+                            arg.RefString = str;
+                        }
                         else
                         {
-                            arg.RefString = constantStringMap[arg.Value];
+                            arg.RefString = "";
                         }
                     }
                 }
