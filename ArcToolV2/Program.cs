@@ -15,8 +15,8 @@ namespace ArcToolV2
                 Console.WriteLine("  created by Crsky");
                 Console.WriteLine();
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  Extract : ArcTool -e -in [input.wbp] -out [output] -cp [codepage]");
-                Console.WriteLine("  Create  : ArcTool -c -in [folder] -out [output.wbp] -cp [codepage]");
+                Console.WriteLine("  Extract : ArcToolV2 -e -in [input.wbp] -out [output] -cp [codepage]");
+                Console.WriteLine("  Create  : ArcToolV2 -c -in [folder] -out [output.wbp] -cp [codepage]");
                 Console.WriteLine();
                 Console.WriteLine("Press any key to continue...");
 
