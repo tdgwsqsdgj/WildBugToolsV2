@@ -1,3 +1,8 @@
+
+This project apply for NOA's Game 電脳妖精エルファン,using wildbug V2 version engine
+
+________________________________________________________________________________
+
 # WildBug Tools
 
 This toolkit is designed for modifying games developed with the WildBug engine.
