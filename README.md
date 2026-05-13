@@ -1,5 +1,5 @@
 
-This project apply for NOA's Game 電脳妖精エルファン,using wildbug V2 version engine
+# <font color=FF0000>This project apply for NOA's Game 電脳妖精エルファン,using wildbug V2 version engine</font>
 
 ________________________________________________________________________________
 
