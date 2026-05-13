@@ -673,19 +673,19 @@ namespace ScriptTool
 
                     if ((arg.Code & 0xF0) == 0x20)
                     {
-                        var id = (i << 8) | j;
+                        // 使用字符串位置作为ID
+                        var id = arg.Value;
 
                         if (translation.TryGetValue(id, out var text))
                         {
                             arg.RefString = text.Unescape();
                         }
-                        if (constantStringMap.TryGetValue(arg.Value, out var str))
-                        {
-                            arg.RefString = str;
-                        }
                         else
                         {
-                            arg.RefString = "";
+                            if (constantStringMap.TryGetValue(arg.Value, out var str))
+                                arg.RefString = str;
+                            else
+                                arg.RefString = "";
                         }
                     }
                 }
